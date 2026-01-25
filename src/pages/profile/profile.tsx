@@ -1,25 +1,37 @@
+import { TRegisterData } from '@api';
 import { ProfileUI } from '@ui-pages';
+import { Preloader } from '@ui';
 import { FC, SyntheticEvent, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  getUser,
+  updateUser,
+  getAuthChecked
+} from '../../services/slices/userSlice';
+import { useDispatch, useSelector } from '../../services/store';
 
 export const Profile: FC = () => {
-  /** TODO: взять переменную из стора */
-  const user = {
-    name: '',
-    email: ''
-  };
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  // Получаем данные из store
+  const user = useSelector(getUser);
+  const isAuthChecked = useSelector(getAuthChecked);
 
   const [formValue, setFormValue] = useState({
-    name: user.name,
-    email: user.email,
+    name: '',
+    email: '',
     password: ''
   });
 
   useEffect(() => {
-    setFormValue((prevState) => ({
-      ...prevState,
-      name: user?.name || '',
-      email: user?.email || ''
-    }));
+    if (user) {
+      setFormValue({
+        name: user.name || '',
+        email: user.email || '',
+        password: ''
+      });
+    }
   }, [user]);
 
   const isFormChanged =
@@ -29,15 +41,32 @@ export const Profile: FC = () => {
 
   const handleSubmit = (e: SyntheticEvent) => {
     e.preventDefault();
+
+    if (isFormChanged && user) {
+      // Создаем объект для обновления
+      const updatedUser: TRegisterData = {
+        name: formValue.name,
+        email: formValue.email,
+        password: formValue.password || ''
+      };
+
+      dispatch(updateUser(updatedUser));
+      setFormValue((prev) => ({
+        ...prev,
+        password: ''
+      }));
+    }
   };
 
   const handleCancel = (e: SyntheticEvent) => {
     e.preventDefault();
-    setFormValue({
-      name: user.name,
-      email: user.email,
-      password: ''
-    });
+    if (user) {
+      setFormValue({
+        name: user.name,
+        email: user.email,
+        password: ''
+      });
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,6 +75,14 @@ export const Profile: FC = () => {
       [e.target.name]: e.target.value
     }));
   };
+
+  if (!isAuthChecked) {
+    return <Preloader />;
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <ProfileUI
@@ -56,6 +93,4 @@ export const Profile: FC = () => {
       handleInputChange={handleInputChange}
     />
   );
-
-  return null;
 };
