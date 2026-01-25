@@ -1,39 +1,35 @@
-import { FC, useMemo, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { FC, useEffect, useMemo } from 'react';
 import { Preloader } from '../ui/preloader';
 import { OrderInfoUI } from '../ui/order-info';
-import { TIngredient, TOrder } from '@utils-types';
-import { useSelector, useDispatch } from '../../services/store';
-import { getIngredients } from '../../services/slices/ingredientsSlice';
+import { TIngredient } from '@utils-types';
+import { getIngredientState } from '../../services/slices/ingredientsSlice';
+import { useSelector } from '../../services/store';
 import {
-  fetchOrderByNumber,
-  getCurrentOrder
+  getOrderByNumber,
+  getOrderState
 } from '../../services/slices/orderSlice';
+import { useDispatch } from '../../services/store';
+import { useParams } from 'react-router-dom';
 
 export const OrderInfo: FC = () => {
-  const { number } = useParams<{ number: string }>();
+  const { getOrderByNumberResponse, request } = useSelector(getOrderState);
   const dispatch = useDispatch();
+  const number = Number(useParams().number);
 
-  const orderData: TOrder | null = useSelector(getCurrentOrder);
-  const ingredients: TIngredient[] = useSelector(getIngredients);
-
+  const { ingredients } = useSelector(getIngredientState);
   useEffect(() => {
-    if (number) {
-      const orderNumber = parseInt(number, 10);
-      dispatch(fetchOrderByNumber(orderNumber));
-    }
-  }, [number, dispatch]);
-
+    dispatch(getOrderByNumber(number));
+  }, []);
   const orderInfo = useMemo(() => {
-    if (!orderData || !ingredients.length) return null;
+    if (!getOrderByNumberResponse || !ingredients.length) return null;
 
-    const date = new Date(orderData.createdAt);
+    const date = new Date(getOrderByNumberResponse.createdAt);
 
     type TIngredientsWithCount = {
       [key: string]: TIngredient & { count: number };
     };
 
-    const ingredientsInfo = orderData.ingredients.reduce(
+    const ingredientsInfo = getOrderByNumberResponse.ingredients.reduce(
       (acc: TIngredientsWithCount, item) => {
         if (!acc[item]) {
           const ingredient = ingredients.find((ing) => ing._id === item);
@@ -58,14 +54,14 @@ export const OrderInfo: FC = () => {
     );
 
     return {
-      ...orderData,
+      ...getOrderByNumberResponse,
       ingredientsInfo,
       date,
       total
     };
-  }, [orderData, ingredients]);
+  }, [getOrderByNumberResponse, ingredients]);
 
-  if (!orderInfo) {
+  if (!orderInfo || request) {
     return <Preloader />;
   }
 

@@ -1,39 +1,39 @@
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useSelector } from '../../services/store';
+import { Preloader } from '../ui/preloader';
+import { getUserState } from '../../services/slices/userSlice';
 
-type ProtectedProps = {
-  unAuth?: boolean;
-  element: JSX.Element;
+type ProtectedRouteProps = {
+  children: React.ReactElement;
+  onlyUnAuth?: boolean; // ← меняем название для ясности
+  // или оставляем onlyAuthorized но меняем логику
 };
 
-const ProtectedRoute = ({
-  unAuth = false,
-  element
-}: ProtectedProps): JSX.Element => {
-  const user = useSelector((state) => state.userAuth.currentUser);
-  const isAuthenticationChecked = useSelector(
-    (state) => state.userAuth.isAuthenticationChecked
-  );
-
+export const ProtectedRoute = ({
+  children,
+  onlyUnAuth = false // ← по умолчанию false (требует авторизации)
+}: ProtectedRouteProps) => {
   const location = useLocation();
+  const { isAuthChecked, isAuthenticated } = useSelector(getUserState);
 
-  if (!isAuthenticationChecked) {
-    return <div>Загрузка...</div>;
+  // Пока проверяем авторизацию - показываем прелоадер
+  if (!isAuthChecked) {
+    return <Preloader />;
   }
 
-  if (unAuth && user) {
-    const { from } = location.state || { from: { pathname: '/' } };
-    return <Navigate to={from} replace />;
+  // Если роут только для НЕавторизованных, а пользователь авторизован
+  if (onlyUnAuth && isAuthenticated) {
+    // Редиректим откуда пришел или на главную
+    const from = location.state?.from || { pathname: '/' };
+    return <Navigate replace to={from} />;
   }
 
-  if (!unAuth && !user) {
-    return <Navigate to={'/login'} state={{ from: location }} replace />;
+  // Если роут для авторизованных, а пользователь НЕавторизован
+  if (!onlyUnAuth && !isAuthenticated) {
+    // Редиректим на логин
+    return <Navigate replace to='/login' state={{ from: location }} />;
   }
 
-  return element;
+  // Все проверки пройдены
+  return children ? children : <Outlet />;
 };
-
-export const Auth = ProtectedRoute;
-export const UnAuth = ({ element }: { element: JSX.Element }) => (
-  <ProtectedRoute unAuth element={element} />
-);

@@ -1,60 +1,51 @@
 import { FC, useMemo } from 'react';
 import { TConstructorIngredient } from '@utils-types';
 import { BurgerConstructorUI } from '@ui';
-import { useDispatch, useSelector } from '../../services/store';
 import {
-  getConstructorItems,
+  getConstructorState,
   getOrderRequest,
   getOrderModalData,
-  setOrderModalData,
-  setOrderRequest,
-  clearConstructor
-} from '../../services/slices/burgerConstructorSlice';
-import { createOrder } from '../../services/slices/orderSlice';
-import { getUser } from '../../services/slices/userSlice';
+  resetModal,
+  setRequest,
+  getOrderBurger
+} from '../../services/slices/constructorSlice';
+import { useDispatch, useSelector } from '../../services/store';
+import { getUserState } from '../../services/slices/userSlice';
 import { useNavigate } from 'react-router-dom';
 
 export const BurgerConstructor: FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const constructorItems = useSelector(getConstructorState);
 
-  const constructorItems = useSelector(getConstructorItems);
   const orderRequest = useSelector(getOrderRequest);
+
   const orderModalData = useSelector(getOrderModalData);
-  const user = useSelector(getUser);
 
+  const isAuthenticated = useSelector(getUserState).isAuthenticated;
+
+  let arr: string[] = [];
+  const ingredients: string[] | void = constructorItems.ingredients.map(
+    (i) => i._id
+  );
+  if (constructorItems.bun) {
+    const bun = constructorItems.bun?._id;
+    arr = [bun, ...ingredients, bun];
+  }
   const onOrderClick = () => {
-    if (!constructorItems.bun || orderRequest) return;
-
-    if (!user) {
-      navigate('/login');
+    if (constructorItems.bun && isAuthenticated) {
+      dispatch(setRequest(true));
+      dispatch(getOrderBurger(arr));
+    } else if (!constructorItems.bun && isAuthenticated) {
       return;
+    } else if (!isAuthenticated) {
+      navigate('/login');
     }
-
-    const ingredientsIds = [
-      constructorItems.bun._id,
-      ...constructorItems.ingredients.map((item) => item._id),
-      constructorItems.bun._id
-    ];
-
-    dispatch(setOrderRequest(true));
-
-    dispatch(createOrder(ingredientsIds))
-      .unwrap()
-      .then((orderData) => {
-        dispatch(setOrderModalData(orderData.order));
-        dispatch(clearConstructor());
-      })
-      .catch((error) => {
-        console.error('Ошибка создания заказа:', error);
-      })
-      .finally(() => {
-        dispatch(setOrderRequest(false));
-      });
   };
 
   const closeOrderModal = () => {
-    dispatch(setOrderModalData(null));
+    dispatch(setRequest(false));
+    dispatch(resetModal());
   };
 
   const price = useMemo(

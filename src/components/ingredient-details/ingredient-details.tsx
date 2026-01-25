@@ -1,25 +1,30 @@
-// components/ingredient-details/ingredient-details.tsx
 import { FC } from 'react';
-import { useParams } from 'react-router-dom';
 import { Preloader } from '../ui/preloader';
 import { IngredientDetailsUI } from '../ui/ingredient-details';
+import { Params, useParams } from 'react-router-dom';
 import { useSelector } from '../../services/store';
-import { getCurrentIngredient } from '../../services/slices/ingredientsSlice';
+import { getIngredientState } from '../../services/slices/ingredientsSlice';
 
 export const IngredientDetails: FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<Params>();
+  const { ingredients, loading, error } = useSelector(getIngredientState);
 
-  const currentIngredient = useSelector(getCurrentIngredient);
-
-  const ingredients = useSelector((state) => state.ingredients.items);
-
-  const ingredientData = id
-    ? ingredients.find((ingredient) => ingredient._id === id)
-    : currentIngredient;
+  const ingredientData = ingredients.find((i) => {
+    if (i._id === id) {
+      return i;
+    }
+  });
 
   if (!ingredientData) {
     return <Preloader />;
   }
 
+  if (loading) {
+    return <div>Загрузка...</div>;
+  }
+
+  if (error) {
+    return <div>Ошибка: {error}</div>;
+  }
   return <IngredientDetailsUI ingredientData={ingredientData} />;
 };

@@ -1,72 +1,72 @@
-import { TRegisterData } from '@api';
 import { ProfileUI } from '@ui-pages';
-import { Preloader } from '@ui';
 import { FC, SyntheticEvent, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSelector } from '../../services/store';
 import {
   getUser,
-  updateUser,
-  getAuthChecked
+  getUserState,
+  updateUser
 } from '../../services/slices/userSlice';
-import { useDispatch, useSelector } from '../../services/store';
+import { useDispatch } from '../../services/store';
+import { Preloader } from '@ui';
 
 export const Profile: FC = () => {
+  const data = useSelector(getUserState).user;
+  const loading = useSelector(getUserState).request;
+  const [isFormChanged, setIsFormChanged] = useState(false);
   const dispatch = useDispatch();
-  const navigate = useNavigate();
 
-  // Получаем данные из store
-  const user = useSelector(getUser);
-  const isAuthChecked = useSelector(getAuthChecked);
+  const user = {
+    name: data?.name || '',
+    email: data?.email || ''
+  };
 
   const [formValue, setFormValue] = useState({
-    name: '',
-    email: '',
+    name: user.name,
+    email: user.email,
     password: ''
   });
 
   useEffect(() => {
-    if (user) {
+    if (data) {
       setFormValue({
-        name: user.name || '',
-        email: user.email || '',
+        name: data.name || '',
+        email: data.email || '',
         password: ''
       });
     }
-  }, [user]);
+  }, [data]);
 
-  const isFormChanged =
-    formValue.name !== user?.name ||
-    formValue.email !== user?.email ||
-    !!formValue.password;
+  useEffect(() => {
+    setIsFormChanged(
+      formValue.name !== user.name ||
+        formValue.email !== user.email ||
+        !!formValue.password
+    );
+  }, [formValue, user]);
 
   const handleSubmit = (e: SyntheticEvent) => {
     e.preventDefault();
-
-    if (isFormChanged && user) {
-      // Создаем объект для обновления
-      const updatedUser: TRegisterData = {
-        name: formValue.name,
-        email: formValue.email,
-        password: formValue.password || ''
-      };
-
-      dispatch(updateUser(updatedUser));
-      setFormValue((prev) => ({
-        ...prev,
-        password: ''
-      }));
-    }
+    dispatch(updateUser(formValue))
+      .unwrap()
+      .then(() => {
+        setIsFormChanged(false);
+        setFormValue({ ...formValue, password: '' });
+        dispatch(getUser());
+      });
   };
+
+  if (loading) {
+    return <Preloader />;
+  }
 
   const handleCancel = (e: SyntheticEvent) => {
     e.preventDefault();
-    if (user) {
-      setFormValue({
-        name: user.name,
-        email: user.email,
-        password: ''
-      });
-    }
+    setFormValue({
+      name: user.name,
+      email: user.email,
+      password: ''
+    });
+    setIsFormChanged(false);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,14 +75,6 @@ export const Profile: FC = () => {
       [e.target.name]: e.target.value
     }));
   };
-
-  if (!isAuthChecked) {
-    return <Preloader />;
-  }
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <ProfileUI
