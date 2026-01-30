@@ -14,14 +14,21 @@ import { useParams } from 'react-router-dom';
 export const OrderInfo: FC = () => {
   const { getOrderByNumberResponse, request } = useSelector(getOrderState);
   const dispatch = useDispatch();
-  const number = Number(useParams().number);
+  const { number: orderNumber } = useParams<{ number: string }>();
 
   const { ingredients } = useSelector(getIngredientState);
+
   useEffect(() => {
-    dispatch(getOrderByNumber(number));
-  }, []);
+    if (orderNumber) {
+      dispatch(getOrderByNumber(Number(orderNumber)));
+    }
+  }, [dispatch, orderNumber]);
+
   const orderInfo = useMemo(() => {
-    if (!getOrderByNumberResponse || !ingredients.length) return null;
+    if (!getOrderByNumberResponse || !ingredients.length) {
+      console.log('No order data or ingredients available');
+      return null;
+    }
 
     const date = new Date(getOrderByNumberResponse.createdAt);
 
@@ -38,6 +45,8 @@ export const OrderInfo: FC = () => {
               ...ingredient,
               count: 1
             };
+          } else {
+            console.warn(`Ingredient with id ${item} not found`);
           }
         } else {
           acc[item].count++;
@@ -53,16 +62,30 @@ export const OrderInfo: FC = () => {
       0
     );
 
-    return {
+    const result = {
       ...getOrderByNumberResponse,
       ingredientsInfo,
       date,
-      total
+      total,
+      number: getOrderByNumberResponse.number,
+      status: getOrderByNumberResponse.status,
+      name: getOrderByNumberResponse.name
     };
+
+    return result;
   }, [getOrderByNumberResponse, ingredients]);
 
-  if (!orderInfo || request) {
+  if (request) {
     return <Preloader />;
+  }
+
+  if (!orderInfo) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px' }}>
+        <h3>Заказ не найден</h3>
+        <p>Не удалось загрузить информацию о заказе</p>
+      </div>
+    );
   }
 
   return <OrderInfoUI orderInfo={orderInfo} />;
