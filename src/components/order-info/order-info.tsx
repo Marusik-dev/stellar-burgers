@@ -1,33 +1,42 @@
-import { FC, useMemo } from 'react';
+import { FC, useEffect, useMemo } from 'react';
 import { Preloader } from '../ui/preloader';
 import { OrderInfoUI } from '../ui/order-info';
 import { TIngredient } from '@utils-types';
+import { getIngredientState } from '../../services/slices/ingredientsSlice';
+import { useSelector } from '../../services/store';
+import {
+  getOrderByNumber,
+  getOrderState
+} from '../../services/slices/orderSlice';
+import { useDispatch } from '../../services/store';
+import { useParams } from 'react-router-dom';
 
 export const OrderInfo: FC = () => {
-  /** TODO: взять переменные orderData и ingredients из стора */
-  const orderData = {
-    createdAt: '',
-    ingredients: [],
-    _id: '',
-    status: '',
-    name: '',
-    updatedAt: 'string',
-    number: 0
-  };
+  const { getOrderByNumberResponse, request } = useSelector(getOrderState);
+  const dispatch = useDispatch();
+  const { number: orderNumber } = useParams<{ number: string }>();
 
-  const ingredients: TIngredient[] = [];
+  const { ingredients } = useSelector(getIngredientState);
 
-  /* Готовим данные для отображения */
+  useEffect(() => {
+    if (orderNumber) {
+      dispatch(getOrderByNumber(Number(orderNumber)));
+    }
+  }, [dispatch, orderNumber]);
+
   const orderInfo = useMemo(() => {
-    if (!orderData || !ingredients.length) return null;
+    if (!getOrderByNumberResponse || !ingredients.length) {
+      console.log('No order data or ingredients available');
+      return null;
+    }
 
-    const date = new Date(orderData.createdAt);
+    const date = new Date(getOrderByNumberResponse.createdAt);
 
     type TIngredientsWithCount = {
       [key: string]: TIngredient & { count: number };
     };
 
-    const ingredientsInfo = orderData.ingredients.reduce(
+    const ingredientsInfo = getOrderByNumberResponse.ingredients.reduce(
       (acc: TIngredientsWithCount, item) => {
         if (!acc[item]) {
           const ingredient = ingredients.find((ing) => ing._id === item);
@@ -36,6 +45,8 @@ export const OrderInfo: FC = () => {
               ...ingredient,
               count: 1
             };
+          } else {
+            console.warn(`Ingredient with id ${item} not found`);
           }
         } else {
           acc[item].count++;
@@ -51,16 +62,30 @@ export const OrderInfo: FC = () => {
       0
     );
 
-    return {
-      ...orderData,
+    const result = {
+      ...getOrderByNumberResponse,
       ingredientsInfo,
       date,
-      total
+      total,
+      number: getOrderByNumberResponse.number,
+      status: getOrderByNumberResponse.status,
+      name: getOrderByNumberResponse.name
     };
-  }, [orderData, ingredients]);
+
+    return result;
+  }, [getOrderByNumberResponse, ingredients]);
+
+  if (request) {
+    return <Preloader />;
+  }
 
   if (!orderInfo) {
-    return <Preloader />;
+    return (
+      <div style={{ textAlign: 'center', padding: '40px' }}>
+        <h3>Заказ не найден</h3>
+        <p>Не удалось загрузить информацию о заказе</p>
+      </div>
+    );
   }
 
   return <OrderInfoUI orderInfo={orderInfo} />;
